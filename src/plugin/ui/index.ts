@@ -42,6 +42,7 @@ export class ReminderPluginUI {
       plugin.settings.autoCompleteTrigger,
       plugin.settings.reminderTimeStep,
       plugin.settings.primaryFormat,
+      plugin.app,
     );
     this.editDetector = new EditDetector(plugin.settings.editDetectionSec);
     this.reminderModal = new ReminderModal(
@@ -103,7 +104,7 @@ export class ReminderPluginUI {
   }
 
   showAutoComplete(editor: AutoCompletableEditor) {
-    this.autoComplete.show(this.plugin.app, editor, this.plugin.reminders);
+    this.autoComplete.show(editor, this.plugin.reminders);
   }
 
   private showReminderModal(

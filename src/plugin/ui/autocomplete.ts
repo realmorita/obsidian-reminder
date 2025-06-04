@@ -25,6 +25,7 @@ export class AutoComplete {
     private trigger: ReadOnlyReference<string>,
     private timeStep: ReadOnlyReference<number>,
     private primaryFormat: ReadOnlyReference<ReminderFormatType>,
+    private app: App,
   ) {}
 
   isTrigger(cmEditor: CodeMirror.Editor, changeObj: CodeMirror.EditorChange) {
@@ -47,7 +48,7 @@ export class AutoComplete {
     return false;
   }
 
-  show(app: App, editor: AutoCompletableEditor, reminders: Reminders): void {
+  show(editor: AutoCompletableEditor, reminders: Reminders): void {
     let result: Promise<DateTime>;
     if (Platform.isDesktopApp) {
       try {
@@ -56,15 +57,15 @@ export class AutoComplete {
           console.error("Cannot get codemirror editor.");
           return;
         }
-        const v = new DateTimeChooserView(cm, reminders);
+        const v = new DateTimeChooserView(cm, reminders, this.app);
         result = v.show();
       } catch (e) {
         // Temporary workaround for Live preview mode
         console.error(e);
-        result = showDateTimeChooserModal(app, reminders, this.timeStep.value);
+        result = showDateTimeChooserModal(this.app, reminders, this.timeStep.value);
       }
     } else {
-      result = showDateTimeChooserModal(app, reminders, this.timeStep.value);
+      result = showDateTimeChooserModal(this.app, reminders, this.timeStep.value);
     }
 
     result

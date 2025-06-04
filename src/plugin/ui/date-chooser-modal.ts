@@ -2,6 +2,7 @@ import type { Reminders } from "model/reminder";
 import type { DateTime } from "model/time";
 import { App, Modal, Platform } from "obsidian";
 import DateTimeChooser from "ui/DateTimeChooser.svelte";
+import moment from "moment";
 
 class DateTimeChooserModal extends Modal {
   private selected?: DateTime;
@@ -12,6 +13,7 @@ class DateTimeChooserModal extends Modal {
     private onSelect: (value: DateTime) => void,
     private onCancel: () => void,
     private timeStep: number,
+    private initialDate: moment.Moment,
   ) {
     super(app);
   }
@@ -35,6 +37,7 @@ class DateTimeChooserModal extends Modal {
         },
         reminders: this.reminders,
         timeStep: this.timeStep,
+        date: this.initialDate,
       },
     });
   }
@@ -53,18 +56,39 @@ class DateTimeChooserModal extends Modal {
   }
 }
 
+function getInitialDateFromActiveFile(app: App): moment.Moment {
+  const activeFile = app.workspace.getActiveFile();
+  if (activeFile) {
+    const fileName = activeFile.basename;
+    console.log("[date-chooser-modal] Active file basename:", fileName);
+    const match = fileName.match(/\d{4}-\d{2}-\d{2}/);
+    console.log("[date-chooser-modal] Regex match:", match);
+    if (match && match[0]) {
+      const dateFromFile = moment(match[0], "YYYY-MM-DD");
+      console.log("[date-chooser-modal] Parsed date from file:", dateFromFile.toString());
+      console.log("[date-chooser-modal] Is date valid:", dateFromFile.isValid());
+      if (dateFromFile.isValid()) {
+        return dateFromFile;
+      }
+    }
+  }
+  return moment();
+}
+
 export function showDateTimeChooserModal(
   app: App,
   reminders: Reminders,
   timeStep: number = 15,
 ): Promise<DateTime> {
   return new Promise((resolve, reject) => {
+    const initialDate = getInitialDateFromActiveFile(app);
     const modal = new DateTimeChooserModal(
       app,
       reminders,
       resolve,
       reject,
       timeStep,
+      initialDate,
     );
     modal.open();
   });
