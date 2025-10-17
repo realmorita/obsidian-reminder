@@ -1,13 +1,26 @@
+/*
+  File: src/plugin/data.ts
+  Overview: プラグイン設定とリマインダー情報の永続化を扱い、繰り返し設定も保存・復元する。
+*/
 import type ReminderPlugin from "main";
 import { Reference } from "model/ref";
 import { Reminder, Reminders } from "model/reminder";
 import { DateTime } from "model/time";
+import {
+  NO_RECURRENCE,
+  type RecurrenceFrequency,
+  type RecurrenceRule,
+} from "model/recurrence";
 import { Settings, TAG_RESCAN } from "plugin/settings";
 
 interface ReminderData {
   title: string;
   time: string;
   rowNumber: number;
+  recurrence?: {
+    frequency: RecurrenceFrequency;
+    until?: string;
+  };
 }
 
 export class PluginData {
@@ -67,6 +80,7 @@ export class PluginData {
                 DateTime.parse(d.time),
                 d.rowNumber,
                 false,
+                convertRecurrenceFromData(d.recurrence),
               ),
           ),
         );
@@ -89,11 +103,18 @@ export class PluginData {
     );
     const remindersData: any = {};
     this.reminders.fileToReminders.forEach((r, filePath) => {
-      remindersData[filePath] = r.map((rr) => ({
-        title: rr.title,
-        time: rr.time.toString(),
-        rowNumber: rr.rowNumber,
-      }));
+      remindersData[filePath] = r.map((rr) => {
+        const recurrence = convertRecurrenceToData(rr.recurrence);
+        const serialized: ReminderData = {
+          title: rr.title,
+          time: rr.time.toString(),
+          rowNumber: rr.rowNumber,
+        };
+        if (recurrence) {
+          serialized.recurrence = recurrence;
+        }
+        return serialized;
+      });
     });
     const settings = {};
     this.settings.forEach((setting) => {
@@ -111,4 +132,31 @@ export class PluginData {
   get settings() {
     return this._settings;
   }
+}
+
+function convertRecurrenceFromData(
+  recurrence?: ReminderData["recurrence"],
+): RecurrenceRule | undefined {
+  if (!recurrence) {
+    return undefined;
+  }
+  if (recurrence.frequency === "none") {
+    return NO_RECURRENCE;
+  }
+  return {
+    frequency: recurrence.frequency,
+    until: recurrence.until ? DateTime.parse(recurrence.until) : undefined,
+  };
+}
+
+function convertRecurrenceToData(
+  recurrence: RecurrenceRule,
+): ReminderData["recurrence"] {
+  if (recurrence.frequency === "none") {
+    return undefined;
+  }
+  return {
+    frequency: recurrence.frequency,
+    until: recurrence.until?.toString(),
+  };
 }

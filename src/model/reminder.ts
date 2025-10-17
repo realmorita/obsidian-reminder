@@ -1,5 +1,11 @@
+/*
+  File: src/model/reminder.ts
+  Overview: リマインダー本体とコレクション管理、繰り返し情報の取り扱いを定義する。
+*/
 import type { ReadOnlyReference } from "model/ref";
 import { DateTime, Time } from "model/time";
+import type { RecurrenceRule } from "model/recurrence";
+import { NO_RECURRENCE, normalizeRecurrence } from "model/recurrence";
 
 export class Reminder {
   // To avoid duplicate notification, set this flag true before notification and set false on notification done.
@@ -20,10 +26,22 @@ export class Reminder {
     public time: DateTime,
     public rowNumber: number,
     public done: boolean,
-  ) {}
+    recurrence?: RecurrenceRule,
+  ) {
+    this.recurrence = normalizeRecurrence(recurrence);
+  }
+
+  public recurrence: RecurrenceRule;
 
   key() {
-    return this.file + this.title + this.time.toString();
+    const recurrenceKey =
+      this.recurrence.frequency === "none"
+        ? ""
+        : JSON.stringify({
+            frequency: this.recurrence.frequency,
+            until: this.recurrence.until?.toString() ?? null,
+          });
+    return this.file + this.title + this.time.toString() + recurrenceKey;
   }
 
   equals(reminder: Reminder) {
@@ -31,7 +49,12 @@ export class Reminder {
       this.rowNumber === reminder.rowNumber &&
       this.title === reminder.title &&
       this.time.equals(reminder.time) &&
-      this.file === reminder.file
+      this.file === reminder.file &&
+      this.recurrence.frequency === reminder.recurrence.frequency &&
+      ((this.recurrence.until == null && reminder.recurrence.until == null) ||
+        (this.recurrence.until != null &&
+          reminder.recurrence.until != null &&
+          this.recurrence.until.equals(reminder.recurrence.until)))
     );
   }
 
@@ -90,6 +113,10 @@ export class Reminders {
     this.fileToReminders.clear();
     this.reminders = [];
     this.onChange();
+  }
+
+  public resort() {
+    this.sortReminders();
   }
 
   public removeByFile(filePath: string) {

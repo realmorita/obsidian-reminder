@@ -1,7 +1,12 @@
+/*
+  File: src/model/format/reminder-base.ts
+  Overview: Markdown ベースのリマインダー解析・編集フレームワークと複合フォーマットを提供する。
+*/
 import type { MarkdownDocument } from "model/format/markdown";
 import type { ReadOnlyReference } from "model/ref";
 import { Reminder } from "model/reminder";
 import { DateTime } from "model/time";
+import { normalizeRecurrence, type RecurrenceRule } from "model/recurrence";
 import { Todo } from "./markdown";
 
 export type ReminderEdit = {
@@ -27,6 +32,8 @@ export interface ReminderModel {
    * this is used for decision of caret position after inserting reminder.
    */
   getEndOfTimeTextIndex(): number;
+  getRecurrence?(): RecurrenceRule | undefined;
+  setRecurrence?(recurrence?: RecurrenceRule): void;
 }
 
 export class ReminderFormatParameterKey<T> {
@@ -128,6 +135,7 @@ export interface ReminderFormat {
     line: string,
     time: DateTime,
     insertAt?: number,
+    recurrence?: RecurrenceRule,
   ): ReminderInsertion | null;
 }
 
@@ -156,12 +164,14 @@ export abstract class TodoBasedReminderFormat<E extends ReminderModel>
         if (time == null) {
           return null;
         }
+        const recurrence = normalizeRecurrence(parsed.getRecurrence?.());
         return new Reminder(
           doc.file,
           title,
           time,
           todo.lineIndex,
           todo.isChecked(),
+          recurrence,
         );
       })
       .filter((reminder): reminder is Reminder => reminder != null);
@@ -231,6 +241,7 @@ export abstract class TodoBasedReminderFormat<E extends ReminderModel>
     line: string,
     time: DateTime,
     insertAt?: number,
+    recurrence?: RecurrenceRule,
   ): ReminderInsertion | null {
     const todo = Todo.parse(0, line);
     if (todo == null) {
@@ -244,8 +255,10 @@ export abstract class TodoBasedReminderFormat<E extends ReminderModel>
     }
     if (parsed != null) {
       parsed.setTime(time, insertAt);
+      parsed.setRecurrence?.(recurrence);
     } else {
       parsed = this.newReminder(todo.body, time, insertAt);
+      parsed.setRecurrence?.(recurrence);
       parsed.setTime(time);
     }
     todo.body = parsed.toMarkdown();
@@ -313,10 +326,15 @@ export class CompositeReminderFormat implements ReminderFormat {
     this.formats.forEach((f) => f.setConfig(this.config!));
   }
 
-  appendReminder(line: string, time: DateTime): ReminderInsertion | null {
+  appendReminder(
+    line: string,
+    time: DateTime,
+    insertAt?: number,
+    recurrence?: RecurrenceRule,
+  ): ReminderInsertion | null {
     if (this.formats[0] == null) {
       return null;
     }
-    return this.formats[0].appendReminder(line, time);
+    return this.formats[0].appendReminder(line, time, insertAt, recurrence);
   }
 }

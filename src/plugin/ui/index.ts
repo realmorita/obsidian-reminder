@@ -1,7 +1,12 @@
+/*
+  File: src/plugin/ui/index.ts
+  Overview: プラグインの UI レイヤーを束ね、リマインダー表示・挿入・設定ビューを制御する。
+*/
 import type ReminderPlugin from "main";
 import type { ReadOnlyReference } from "model/ref";
 import type { DateTime } from "model/time";
 import type { Reminder } from "model/reminder";
+import { nextOccurrence } from "model/recurrence";
 import {
   App,
   MarkdownView,
@@ -170,19 +175,28 @@ export class ReminderPluginUI {
     reminder.muteNotification = true;
     this.showReminderModal(
       reminder,
-      (time) => {
+      async (time) => {
         console.info("Remind me later: time=%o", time);
         reminder.time = time;
         reminder.muteNotification = false;
-        this.plugin.fileSystem.updateReminder(reminder, false);
+        await this.plugin.fileSystem.updateReminder(reminder, false);
         this.plugin.data.save(true);
+        this.reload(true);
       },
-      () => {
+      async () => {
         console.info("done");
         reminder.muteNotification = false;
-        this.plugin.fileSystem.updateReminder(reminder, true);
-        this.plugin.reminders.removeReminder(reminder);
+        const next = nextOccurrence(reminder.time, reminder.recurrence);
+        if (next != null) {
+          reminder.time = next;
+          reminder.done = false;
+          await this.plugin.fileSystem.updateReminder(reminder, false);
+        } else {
+          await this.plugin.fileSystem.updateReminder(reminder, true);
+          this.plugin.reminders.removeReminder(reminder);
+        }
         this.plugin.data.save(true);
+        this.reload(true);
       },
       () => {
         console.info("Mute");

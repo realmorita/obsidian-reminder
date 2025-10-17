@@ -1,11 +1,15 @@
+/*
+  File: src/plugin/ui/autocomplete.ts
+  Overview: 自動補完トリガーから日時・繰り返し設定を取得し、Markdown 行へリマインダーを挿入する。
+*/
 import type { ReadOnlyReference } from "model/ref";
 import type { Reminders } from "model/reminder";
-import type { DateTime } from "model/time";
 import { App, Platform } from "obsidian";
 import type { EditorPosition } from "obsidian";
 import type { ReminderFormatType } from "model/format";
 import { showDateTimeChooserModal } from "./date-chooser-modal";
 import { DateTimeChooserView } from "./datetime-chooser";
+import type { ReminderSelection } from "./reminder-selection";
 
 export interface AutoCompletableEditor {
   getCursor(): EditorPosition;
@@ -49,7 +53,7 @@ export class AutoComplete {
   }
 
   show(editor: AutoCompletableEditor, reminders: Reminders): void {
-    let result: Promise<DateTime>;
+    let result: Promise<ReminderSelection>;
     if (Platform.isDesktopApp) {
       try {
         const cm: CodeMirror.Editor = (editor as any).cm;
@@ -69,8 +73,8 @@ export class AutoComplete {
     }
 
     result
-      .then((value) => {
-        this.insert(editor, value, true);
+      .then((selection) => {
+        this.insert(editor, selection, true);
       })
       .catch(() => {
         /* do nothing on cancel */
@@ -79,7 +83,7 @@ export class AutoComplete {
 
   insert(
     editor: AutoCompletableEditor,
-    value: DateTime,
+    selection: ReminderSelection,
     triggerFromCommand: boolean = false,
   ): void {
     const pos = editor.getCursor();
@@ -96,12 +100,17 @@ export class AutoComplete {
     // append reminder to the line
     const format = this.primaryFormat.value.format;
     try {
-      const appended = format.appendReminder(line, value)?.insertedLine;
+      const appended = format.appendReminder(
+        line,
+        selection.time,
+        undefined,
+        selection.recurrence,
+      )?.insertedLine;
       if (appended == null) {
         console.error(
           "Cannot append reminder time to the line: line=%s, date=%s",
           line,
-          value,
+          selection.time,
         );
         return;
       }

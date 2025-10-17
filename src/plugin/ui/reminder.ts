@@ -1,3 +1,7 @@
+/*
+  File: src/plugin/ui/reminder.ts
+  Overview: リマインダー通知モーダルの表示と Obsidian/Svelte UI の橋渡しを行う。
+*/
 import type { ReadOnlyReference } from "model/ref";
 import type { DateTime } from "model/time";
 import { App, Modal } from "obsidian";
@@ -15,8 +19,8 @@ export class ReminderModal {
 
   public show(
     reminder: Reminder,
-    onRemindMeLater: (time: DateTime) => void,
-    onDone: () => void,
+    onRemindMeLater: (time: DateTime) => void | Promise<void>,
+    onDone: () => void | Promise<void>,
     onMute: () => void,
     onOpenFile: () => void,
   ) {
@@ -53,11 +57,11 @@ export class ReminderModal {
         const laters = this.laters.value;
         n.on("action", (_: any, index: any) => {
           if (index === 0) {
-            onDone();
+            void onDone();
             return;
           }
           const later = laters[index - 1]!;
-          onRemindMeLater(later.later());
+          void onRemindMeLater(later.later());
         });
         const actions = [{ type: "button", text: "Mark as Done" }];
         laters.forEach((later) => {
@@ -72,8 +76,8 @@ export class ReminderModal {
 
   private showBuiltinReminder(
     reminder: Reminder,
-    onRemindMeLater: (time: DateTime) => void,
-    onDone: () => void,
+    onRemindMeLater: (time: DateTime) => void | Promise<void>,
+    onDone: () => void | Promise<void>,
     onCancel: () => void,
     onOpenFile: () => void,
   ) {
@@ -107,8 +111,8 @@ class NotificationModal extends Modal {
     app: App,
     private laters: Array<Later>,
     private reminder: Reminder,
-    private onRemindMeLater: (time: DateTime) => void,
-    private onDone: () => void,
+    private onRemindMeLater: (time: DateTime) => void | Promise<void>,
+    private onDone: () => void | Promise<void>,
     private onCancel: () => void,
     private onOpenFile: () => void,
   ) {
@@ -126,14 +130,14 @@ class NotificationModal extends Modal {
       props: {
         reminder: this.reminder,
         laters: this.laters,
-        onRemindMeLater: (time: DateTime) => {
-          this.onRemindMeLater(time);
+        onRemindMeLater: async (time: DateTime) => {
+          await this.onRemindMeLater(time);
           this.canceled = false;
           this.close();
         },
-        onDone: () => {
+        onDone: async () => {
           this.canceled = false;
-          this.onDone();
+          await this.onDone();
           this.close();
         },
         onOpenFile: () => {

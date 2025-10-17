@@ -1,13 +1,17 @@
+/*
+  File: src/plugin/ui/datetime-chooser.ts
+  Overview: エディタ内ポップアップとして DateTimeChooser Svelte コンポーネントを管理し、選択結果を返す。
+*/
 import type { Reminders } from "model/reminder";
-import type { DateTime } from "model/time";
 import moment from "moment";
 import type { App } from "obsidian";
 import DateTimeChooser from "ui/DateTimeChooser.svelte";
+import type { ReminderSelection } from "./reminder-selection";
 
 export class DateTimeChooserView {
   private view: HTMLElement;
   private dateTimeChooser: DateTimeChooser;
-  private resultResolve?: (result: DateTime) => void;
+  private resultResolve?: (result: ReminderSelection) => void;
   private resultReject?: () => void;
 
   constructor(
@@ -21,8 +25,8 @@ export class DateTimeChooserView {
     this.dateTimeChooser = new DateTimeChooser({
       target: this.view,
       props: {
-        onSelect: (time: DateTime) => {
-          this.setResult(time);
+        onSelect: (selection: ReminderSelection) => {
+          this.setResult(selection);
           this.hide();
         },
         reminders,
@@ -46,7 +50,7 @@ export class DateTimeChooserView {
     this.view.style.left = `${coords.left - parentRect.left}px`;
 
     parent.appendChild(this.view);
-    return new Promise<DateTime>((resolve, reject) => {
+    return new Promise<ReminderSelection>((resolve, reject) => {
       this.resultResolve = resolve;
       this.resultReject = reject;
     });
@@ -57,7 +61,7 @@ export class DateTimeChooserView {
     this.hide();
   }
 
-  private setResult(result: DateTime | null) {
+  private setResult(result: ReminderSelection | null) {
     if (this.resultReject == null || this.resultResolve == null) {
       return;
     }

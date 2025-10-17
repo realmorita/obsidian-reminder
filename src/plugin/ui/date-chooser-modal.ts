@@ -1,16 +1,20 @@
+/*
+  File: src/plugin/ui/date-chooser-modal.ts
+  Overview: モーダル版 DateTimeChooser を構築し、選択結果を Promise として返す。
+*/
 import type { Reminders } from "model/reminder";
-import type { DateTime } from "model/time";
 import { App, Modal, Platform } from "obsidian";
 import DateTimeChooser from "ui/DateTimeChooser.svelte";
 import moment from "moment";
+import type { ReminderSelection } from "./reminder-selection";
 
 class DateTimeChooserModal extends Modal {
-  private selected?: DateTime;
+  private selected?: ReminderSelection;
 
   constructor(
     app: App,
     private reminders: Reminders,
-    private onSelect: (value: DateTime) => void,
+    private onSelect: (value: ReminderSelection) => void,
     private onCancel: () => void,
     private timeStep: number,
     private initialDate: moment.Moment,
@@ -32,8 +36,8 @@ class DateTimeChooserModal extends Modal {
     new DateTimeChooser({
       target: targetElement,
       props: {
-        onSelect: (time: DateTime) => {
-          this.select(time);
+        onSelect: (selection: ReminderSelection) => {
+          this.select(selection);
         },
         reminders: this.reminders,
         timeStep: this.timeStep,
@@ -42,8 +46,8 @@ class DateTimeChooserModal extends Modal {
     });
   }
 
-  private select(time: DateTime) {
-    this.selected = time;
+  private select(selection: ReminderSelection) {
+    this.selected = selection;
     this.close();
   }
 
@@ -79,7 +83,7 @@ export function showDateTimeChooserModal(
   app: App,
   reminders: Reminders,
   timeStep: number = 15,
-): Promise<DateTime> {
+): Promise<ReminderSelection> {
   return new Promise((resolve, reject) => {
     const initialDate = getInitialDateFromActiveFile(app);
     const modal = new DateTimeChooserModal(

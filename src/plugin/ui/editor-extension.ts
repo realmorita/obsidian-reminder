@@ -1,3 +1,7 @@
+/*
+  File: src/plugin/ui/editor-extension.ts
+  Overview: CodeMirror ビュー更新を監視し、トリガー入力時に日時選択モーダルを呼び出してリマインダーを挿入する。
+*/
 import { EditorSelection } from "@codemirror/state";
 import { ViewPlugin, ViewUpdate } from "@codemirror/view";
 import type { Reminders } from "model/reminder";
@@ -26,7 +30,7 @@ export function buildCodeMirrorPlugin(
           const timeStep = settings.reminderTimeStep.value;
           if (trigger === text) {
             showDateTimeChooserModal(app, reminders, timeStep)
-              .then((value) => {
+              .then((selection) => {
                 const format = settings.primaryFormat.value.format;
                 try {
                   const line = doc.lineAt(toB);
@@ -49,14 +53,15 @@ export function buildCodeMirrorPlugin(
                   // insert/update a reminder of the line
                   const reminderInsertion = format.appendReminder(
                     triggerExcludedLine,
-                    value,
+                    selection.time,
                     triggerStart,
+                    selection.recurrence,
                   );
                   if (reminderInsertion == null) {
                     console.error(
                       "Cannot append reminder time to the line: line=%s, date=%s",
                       line.text,
-                      value,
+                      selection.time,
                     );
                     return;
                   }
