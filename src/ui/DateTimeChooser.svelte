@@ -1,3 +1,7 @@
+<!--
+  File: src/ui/DateTimeChooser.svelte
+  Overview: リマインダー作成モーダルで日付と時刻を選択し、既定のリマインダー時刻を含む DateTime を返す。
+-->
 <script lang="typescript">
   import moment from "moment";
   import type { Reminders } from "../model/reminder";
@@ -11,20 +15,33 @@
   export let onSelect: (time: DateTime) => void;
   export let timeStep = 15;
   let time = reminders.reminderTime?.value.toString() ?? "10:00";
-  let timeIsFocused = false;
 
-  function handleSelect() {
-    const [hour, minute] = time.split(":");
+  function handleSelect(): void {
+    const [hourText, minuteText] = time.split(":");
+    const hour = Number.parseInt(hourText ?? "", 10);
+    const minute = Number.parseInt(minuteText ?? "", 10);
+    // 既定値のままでも時間を必ず付与し、異常値時は設定値にフォールバックする。
+    const hasValidTime = !Number.isNaN(hour) && !Number.isNaN(minute);
+
     const selection = date.clone();
-    if (timeIsFocused) {
-      selection.set({
-        hour: parseInt(hour!),
-        minute: parseInt(minute!),
-      });
+    if (hasValidTime) {
+      selection.set({ hour, minute });
       onSelect(new DateTime(selection, true));
-    } else {
-      onSelect(new DateTime(selection, false));
+      return;
     }
+    const fallback = reminders.reminderTime?.value?.toString();
+    if (fallback != null) {
+      const [fallbackHourText, fallbackMinuteText] = fallback.split(":");
+      const fallbackHour = Number.parseInt(fallbackHourText ?? "", 10);
+      const fallbackMinute = Number.parseInt(fallbackMinuteText ?? "", 10);
+      if (!Number.isNaN(fallbackHour) && !Number.isNaN(fallbackMinute)) {
+        selection.set({ hour: fallbackHour, minute: fallbackMinute });
+        onSelect(new DateTime(selection, true));
+        return;
+      }
+    }
+    selection.set({ hour: 9, minute: 0 });
+    onSelect(new DateTime(selection, true));
   }
 </script>
 
@@ -45,9 +62,6 @@
         step={timeStep}
         on:select={() => {
           handleSelect();
-        }}
-        on:focus={() => {
-          timeIsFocused = true;
         }}
       />
     </div>
