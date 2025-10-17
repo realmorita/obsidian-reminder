@@ -1,3 +1,8 @@
+/**
+ * File: src/plugin/settings/index.ts
+ * Purpose: Obsidian Reminderプラグインの設定タブUIを構築し、設定項目のラベルやグループを定義する。
+ */
+
 import {
   ReminderFormatType,
   ReminderFormatTypes,
@@ -21,6 +26,26 @@ import {
   TimeSerde,
 } from "./helper";
 import type { SettingModel } from "./helper";
+
+// 日本語UIに合わせた設定ラベルと曜日ラベルをまとめて定義する。
+const REMINDER_FORMAT_LABELS_JA = new Map<string, string>([
+  [reminderPluginReminderFormat.name, "Reminderプラグイン形式"],
+  [tasksPluginReminderFormat.name, "Tasksプラグイン形式"],
+  [kanbanPluginReminderFormat.name, "Kanbanプラグイン形式"],
+]);
+
+const WEEKDAY_LABELS_JA = [
+  "日曜日",
+  "月曜日",
+  "火曜日",
+  "水曜日",
+  "木曜日",
+  "金曜日",
+  "土曜日",
+];
+
+const getFormatLabelJa = (format: ReminderFormatType): string =>
+  REMINDER_FORMAT_LABELS_JA.get(format.name) ?? format.description;
 
 export const TAG_RESCAN = "re-scan";
 
@@ -48,39 +73,40 @@ export class Settings {
   reminderCheckIntervalSec: SettingModel<number, number>;
 
   constructor() {
+    // リマインダー形式ごとの依存関係をまとめて管理する補助クラス。
     const reminderFormatSettings = new ReminderFormatSettings(this.settings);
 
     this.reminderTime = this.settings
       .newSettingBuilder()
       .key("reminderTime")
-      .name("Reminder Time")
-      .desc("Time when a reminder with no time part will show")
+      .name("リマインダー時刻")
+      .desc("時間を含まないリマインダーを通知する既定時刻を設定します")
       .tag(TAG_RESCAN)
       .text("09:00")
-      .placeHolder("Time (hh:mm)")
+      .placeHolder("時刻 (hh:mm)")
       .build(new TimeSerde());
 
     this.reminderTimeStep = this.settings
       .newSettingBuilder()
       .key("reminderTimeStep")
-      .name("Reminder Time Step (minutes)")
-      .desc("Step of time for reminder time (minutes)")
+      .name("リマインダー時刻の刻み (分)")
+      .desc("リマインダー時刻を変更するときの刻み幅 (分) を指定します")
       .number(15)
       .build(new RawSerde());
 
     this.useSystemNotification = this.settings
       .newSettingBuilder()
       .key("useSystemNotification")
-      .name("Use system notification")
-      .desc("Use system notification for reminder notifications")
+      .name("システム通知を使用する")
+      .desc("OSのシステム通知でリマインダーを表示します")
       .toggle(false)
       .build(new RawSerde());
 
     this.laters = this.settings
       .newSettingBuilder()
       .key("laters")
-      .name("Remind me later")
-      .desc("Line-separated list of remind me later items")
+      .name("あとで通知する候補")
+      .desc("「あとで通知」候補を改行区切りで入力します（英語の自然文で指定してください）")
       .textArea("In 30 minutes\nIn 1 hour\nIn 3 hours\nTomorrow\nNext week")
       .placeHolder("In 30 minutes\nIn 1 hour\nIn 3 hours\nTomorrow\nNext week")
       .build(new LatersSerde());
@@ -88,11 +114,16 @@ export class Settings {
     const weekStartBuilder = this.settings
       .newSettingBuilder()
       .key("weekStart")
-      .name("Week start")
-      .desc("Select the first day of the week")
+      .name("週の開始曜日")
+      .desc("カレンダーの開始曜日を選択します")
       .dropdown("0");
     Array.from({ length: 7 }, (_, d) => {
-      const dayName = moment().weekday(d).format("dddd");
+      const dayName = WEEKDAY_LABELS_JA[d];
+      if (!dayName) {
+        // 想定外のインデックスに備え、momentの英語表記をフォールバック表示する。
+        weekStartBuilder.addOption(moment().weekday(d).format("dddd"), d.toString());
+        return;
+      }
       weekStartBuilder.addOption(dayName, d.toString());
     });
     this.weekStart = weekStartBuilder
@@ -108,9 +139,9 @@ export class Settings {
     this.dateFormat = this.settings
       .newSettingBuilder()
       .key("dateFormat")
-      .name("Date format")
+      .name("日付フォーマット")
       .desc(
-        "moment style date format: https://momentjs.com/docs/#/displaying/format/",
+        "moment形式の日付フォーマット: https://momentjs.com/docs/#/displaying/format/",
       )
       .tag(TAG_RESCAN)
       .text("YYYY-MM-DD")
@@ -125,8 +156,8 @@ export class Settings {
     this.strictDateFormat = this.settings
       .newSettingBuilder()
       .key("strictDateFormat")
-      .name("Strict Date format")
-      .desc("Strictly parse the date and time")
+      .name("日付フォーマットを厳密に解析")
+      .desc("日付と時刻を厳密に解析します")
       .tag(TAG_RESCAN)
       .toggle(false)
       .build(new RawSerde());
@@ -134,9 +165,9 @@ export class Settings {
     this.dateTimeFormat = this.settings
       .newSettingBuilder()
       .key("dateTimeFormat")
-      .name("Date and time format")
+      .name("日時フォーマット")
       .desc(
-        "moment() style date time format: https://momentjs.com/docs/#/displaying/format/",
+        "moment形式の日時フォーマット: https://momentjs.com/docs/#/displaying/format/",
       )
       .tag(TAG_RESCAN)
       .text("YYYY-MM-DD HH:mm")
@@ -151,8 +182,8 @@ export class Settings {
     this.linkDatesToDailyNotes = this.settings
       .newSettingBuilder()
       .key("linkDatesToDailyNotes")
-      .name("Link dates to daily notes")
-      .desc("When toggled, Dates link to daily notes.")
+      .name("日付をデイリーノートにリンク")
+      .desc("有効にすると日付がデイリーノートへのリンクになります。")
       .tag(TAG_RESCAN)
       .toggle(false)
       .onAnyValueChanged((context) => {
@@ -165,14 +196,14 @@ export class Settings {
     this.autoCompleteTrigger = this.settings
       .newSettingBuilder()
       .key("autoCompleteTrigger")
-      .name("Calendar popup trigger")
-      .desc("Trigger text to show calendar popup")
+      .name("カレンダーポップアップのトリガー文字")
+      .desc("カレンダーポップアップを開くトリガー文字列を指定します")
       .text("(@")
       .placeHolder("(@")
       .onAnyValueChanged((context) => {
         const value = this.autoCompleteTrigger.value;
         context.setInfo(
-          `Popup is ${value.length === 0 ? "disabled" : "enabled"}`,
+          `ポップアップは${value.length === 0 ? "無効" : "有効"}です`,
         );
       })
       .build(new RawSerde());
@@ -180,12 +211,13 @@ export class Settings {
     const primaryFormatBuilder = this.settings
       .newSettingBuilder()
       .key("primaryReminderFormat")
-      .name("Primary reminder format")
-      .desc("Reminder format for generated reminder by calendar popup")
+      .name("既定のリマインダー形式")
+      .desc("カレンダーポップアップで生成されるリマインダーの形式を選択します")
       .dropdown(ReminderFormatTypes[0]!.name);
-    ReminderFormatTypes.forEach((f) =>
-      primaryFormatBuilder.addOption(`${f.description} - ${f.example}`, f.name),
-    );
+    ReminderFormatTypes.forEach((f) => {
+      const label = getFormatLabelJa(f);
+      primaryFormatBuilder.addOption(`${label} - ${f.example}`, f.name);
+    });
     this.primaryFormat = primaryFormatBuilder.build(
       new ReminderFormatTypeSerde(),
     );
@@ -193,9 +225,9 @@ export class Settings {
     this.useCustomEmojiForTasksPlugin = this.settings
       .newSettingBuilder()
       .key("useCustomEmojiForTasksPlugin")
-      .name("Distinguish between reminder date and due date")
+      .name("リマインダー日付と期限日を区別")
       .desc(
-        "Use custom emoji ⏰ instead of 📅 and distinguish between reminder date/time and Tasks Plugin's due date.",
+        "カスタム絵文字⏰を使用してリマインダー日時とTasksプラグインの期限日を区別します。",
       )
       .tag(TAG_RESCAN)
       .toggle(false)
@@ -208,9 +240,9 @@ export class Settings {
     this.removeTagsForTasksPlugin = this.settings
       .newSettingBuilder()
       .key("removeTagsForTasksPlugin")
-      .name("Remove tags from reminder title")
+      .name("リマインダーのタイトルからタグを除外")
       .desc(
-        "If checked, tags(#xxx) are removed from the reminder list view and notification.",
+        "有効にするとリマインダー一覧と通知からタグ (#xxx) を取り除きます。",
       )
       .tag(TAG_RESCAN)
       .toggle(false)
@@ -224,9 +256,9 @@ export class Settings {
     this.yearMonthDisplayFormat = this.settings
       .newSettingBuilder()
       .key("yearMonthDisplayFormat")
-      .name("Year & Month Format")
+      .name("年月フォーマット")
       .desc(
-        "Moment style year and month format:\nhttps://momentjs.com/docs/#/displaying/format/",
+        "moment形式の年月フォーマット:\nhttps://momentjs.com/docs/#/displaying/format/",
       )
       .text("YYYY, MMMM")
       .placeHolder("YYYY, MMMM")
@@ -234,9 +266,9 @@ export class Settings {
     this.monthDayDisplayFormat = this.settings
       .newSettingBuilder()
       .key("monthDayDisplayFormat")
-      .name("Month & Day Format")
+      .name("月日フォーマット")
       .desc(
-        "Moment style month and day format:\nhttps://momentjs.com/docs/#/displaying/format/",
+        "moment形式の月日フォーマット:\nhttps://momentjs.com/docs/#/displaying/format/",
       )
       .text("MM/DD")
       .placeHolder("MM/DD")
@@ -244,9 +276,9 @@ export class Settings {
     this.shortDateWithWeekdayDisplayFormat = this.settings
       .newSettingBuilder()
       .key("shortDateWithWeekdayDisplayFormat")
-      .name("Short Date with Weekday Format")
+      .name("曜日付き短縮日付フォーマット")
       .desc(
-        "Moment style short date with weekday format:\nhttps://momentjs.com/docs/#/displaying/format/",
+        "moment形式の曜日付き短縮日付フォーマット:\nhttps://momentjs.com/docs/#/displaying/format/",
       )
       .text("M/DD (ddd)")
       .placeHolder("M/DD (ddd)")
@@ -254,9 +286,9 @@ export class Settings {
     this.timeDisplayFormat = this.settings
       .newSettingBuilder()
       .key("timeDisplayFormat")
-      .name("Time Format")
+      .name("時刻フォーマット")
       .desc(
-        "Moment style time format:\nhttps://momentjs.com/docs/#/displaying/format/",
+        "moment形式の時刻フォーマット:\nhttps://momentjs.com/docs/#/displaying/format/",
       )
       .text("HH:mm")
       .placeHolder("HH:mm")
@@ -265,24 +297,24 @@ export class Settings {
     this.editDetectionSec = this.settings
       .newSettingBuilder()
       .key("editDetectionSec")
-      .name("Edit Detection Time")
+      .name("編集検知時間 (秒)")
       .desc(
-        "The minimum amount of time (in seconds) after a key is typed that it will be identified as notifiable.",
+        "キー入力後に編集が完了したと見なすまでの最小時間 (秒) を指定します",
       )
       .number(10)
       .build(new RawSerde());
     this.reminderCheckIntervalSec = this.settings
       .newSettingBuilder()
       .key("reminderCheckIntervalSec")
-      .name("Reminder check interval")
+      .name("リマインダー確認間隔 (秒)")
       .desc(
-        "Interval(in seconds) to periodically check whether or not you should be notified of reminders.  You will need to restart Obsidian for this setting to take effect.",
+        "リマインダー通知を確認する間隔 (秒)。変更後はObsidianの再起動が必要です。",
       )
       .number(5)
       .build(new RawSerde());
 
     this.settings
-      .newGroup("Notification Settings")
+      .newGroup("通知設定")
       .addSettings(
         this.reminderTime,
         this.reminderTimeStep,
@@ -290,10 +322,10 @@ export class Settings {
         this.useSystemNotification,
       );
     this.settings
-      .newGroup("Editor")
+      .newGroup("エディター")
       .addSettings(this.autoCompleteTrigger, this.primaryFormat);
     this.settings
-      .newGroup("Reminder Format - Reminder Plugin")
+      .newGroup("リマインダー形式 - Reminderプラグイン")
       .addSettings(
         reminderFormatSettings.enableReminderPluginReminderFormat,
         this.dateFormat,
@@ -302,17 +334,17 @@ export class Settings {
         this.linkDatesToDailyNotes,
       );
     this.settings
-      .newGroup("Reminder Format - Tasks Plugin")
+      .newGroup("リマインダー形式 - Tasksプラグイン")
       .addSettings(
         reminderFormatSettings.enableTasksPluginReminderFormat,
         this.useCustomEmojiForTasksPlugin,
         this.removeTagsForTasksPlugin,
       );
     this.settings
-      .newGroup("Reminder Format - Kanban Plugin")
+      .newGroup("リマインダー形式 - Kanbanプラグイン")
       .addSettings(reminderFormatSettings.enableKanbanPluginReminderFormat);
     this.settings
-      .newGroup("Date/Time Display Format")
+      .newGroup("日付と時刻の表示形式")
       .addSettings(
         this.yearMonthDisplayFormat,
         this.monthDayDisplayFormat,
@@ -320,7 +352,7 @@ export class Settings {
         this.timeDisplayFormat,
       );
     this.settings
-      .newGroup("Advanced")
+      .newGroup("詳細設定")
       .addSettings(
         this.editDetectionSec,
         this.reminderCheckIntervalSec,
@@ -372,16 +404,17 @@ class ReminderFormatSettings {
 
   private createUseReminderFormatSetting(format: ReminderFormatType) {
     const key = `enable${format.name}`;
+    const labelJa = getFormatLabelJa(format);
     const setting = this.settings
       .newSettingBuilder()
       .key(key)
-      .name(`Enable ${format.description}`)
-      .desc(`Enable ${format.description}`)
+      .name(`${labelJa}を有効にする`)
+      .desc(`${labelJa}を有効にします`)
       .tag(TAG_RESCAN)
       .toggle(format.defaultEnabled)
       .onAnyValueChanged((context) => {
         context.setInfo(
-          `Example: ${format.format.appendReminder("- [ ] Task 1", DateTime.now())?.insertedLine}`,
+          `例: ${format.format.appendReminder("- [ ] タスク1", DateTime.now())?.insertedLine}`,
         );
       })
       .build(new RawSerde());
